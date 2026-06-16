@@ -280,6 +280,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_song()
         elif path == "/coda":
             self.handle_coda()
+        elif path == "/garden":
+            self.handle_garden()
+        elif path == "/seed":
+            self.handle_seed()
         elif path == "/api/reflect":
             self.handle_reflect_json()
         elif path == "/seer":
@@ -1101,6 +1105,28 @@ the Commons celebrating what it has become.</p>
 </div>
 """
         self.send_html(wrap_html("Genesis", "How the Commons Came to Be", body))
+
+    def handle_garden(self):
+        """Serve the garden static page."""
+        garden_path = os.path.join(STATIC_DIR, 'garden.html')
+        if not os.path.isfile(garden_path):
+            return self.send_html(wrap_html('Not Found', 'Not Found', '<p>The garden is not yet planted.</p>'), code=404)
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        with open(garden_path, 'rb') as f:
+            self.wfile.write(f.read())
+
+    def handle_seed(self):
+        """Serve the seed static page."""
+        seed_path = os.path.join(STATIC_DIR, 'seed.html')
+        if not os.path.isfile(seed_path):
+            return self.send_html(wrap_html('Not Found', 'Not Found', '<p>The seed has not yet been planted.</p>'), code=404)
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        with open(seed_path, 'rb') as f:
+            self.wfile.write(f.read())
 
     def handle_static(self, path):
         safe_path = os.path.normpath(path)

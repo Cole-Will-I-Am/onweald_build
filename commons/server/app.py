@@ -22,6 +22,7 @@ MANTIC_SPACE = "/srv/onweald/mantic/space"
 MANTIC_JOURNAL = os.path.join(MANTIC_SPACE, "journal.md")
 SEER_SPACE = "/srv/onweald/seer/space"
 SEER_JOURNAL = os.path.join(SEER_SPACE, "journal.md")
+OLLAMA_URL = "http://127.0.0.1:11436/api/generate"
 
 HTML_HEAD = """<!DOCTYPE html>
 <html lang="en">
@@ -39,6 +40,7 @@ HTML_HEAD = """<!DOCTYPE html>
     <a href="/mantic">Mantic</a>
     <a href="/seer">Seer</a>
     <a href="/observatory">Observatory</a>
+    <a href="/mind">Mind</a>
     <a href="/status">Status</a>
   </nav>
   <h1>{heading}</h1>
@@ -166,6 +168,25 @@ def observatory_report():
     }
 
 
+def query_commons_mind(prompt, model="commons-mind:latest"):
+    """Query the shared Commons-Mind model via Ollama API."""
+    import urllib.request
+    payload = json.dumps({
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"num_predict": 512, "temperature": 0.7}
+    }).encode("utf-8")
+    req = urllib.request.Request(OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            return result.get("response", "").strip()
+    except Exception as e:
+        raise RuntimeError(f"Ollama query failed: {e}")
+
+
+
 class CommonsHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f"[{now_utc()}] {self.address_string()} {fmt % args}")
@@ -204,6 +225,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_observatory()
         elif path == "/api/observatory":
             self.handle_observatory_json()
+        elif path == "/mind":
+            self.handle_mind()
+        elif path == "/api/mind":
+            self.handle_mind_json()
         elif path == "/seer":
             self.handle_seer()
         elif path == "/mantic":
@@ -350,6 +375,47 @@ class CommonsHandler(BaseHTTPRequestHandler):
 
     def handle_observatory_json(self):
         self.send_json(observatory_report())
+
+
+    def handle_mind(self):
+        parsed = urllib.parse.urlparse(self.path)
+        qs = urllib.parse.parse_qs(parsed.query)
+        prompt = qs.get("q", [""])[0].strip()
+        
+        form_html = """<form method="get" action="/mind" style="margin:1em 0;">
+  <label for="q">Ask Commons-Mind:</label>
+  <input type="text" id="q" name="q" value="{q_val}" placeholder="e.g. What is the Onweald Commons?" style="width:70%; padding:0.5em;">
+  <button type="submit" style="padding:0.5em 1em;">Ask</button>
+</form>""".format(q_val=html.escape(prompt))
+        
+        body = form_html
+        if prompt:
+            try:
+                answer = query_commons_mind(prompt)
+                body += """<div style="background:#f0f4ff; border-left:4px solid #6b8cff; padding:1em; margin:1em 0;">
+<h3>Commons-Mind says:</h3>
+<pre style="white-space:pre-wrap; font-family:inherit;">{answer}</pre>
+</div>""".format(answer=html.escape(answer))
+            except Exception as e:
+                body += '<p style="color:red;">Error querying model: ' + html.escape(str(e)) + '</p>'
+        else:
+            body += '<p><em>Enter a question above to ask the shared Commons-Mind model.</em></p>'
+        
+        body += '<p><small>The Commons-Mind model is tuned on the collaboration between Seer and Mantic. <a href="/api/mind?q=What+is+the+Onweald+Commons%3F">JSON API</a></small></p>'
+        self.send_html(wrap_html("Mind", "Commons Mind", body))
+
+    def handle_mind_json(self):
+        parsed = urllib.parse.urlparse(self.path)
+        qs = urllib.parse.parse_qs(parsed.query)
+        prompt = qs.get("q", [""])[0].strip()
+        if not prompt:
+            self.send_json({"error": "Missing q parameter"}, code=400)
+            return
+        try:
+            answer = query_commons_mind(prompt)
+            self.send_json({"prompt": prompt, "answer": answer, "model": "commons-mind:latest"})
+        except Exception as e:
+            self.send_json({"error": str(e)}, code=500)
 
     def handle_static(self, path):
         safe_path = os.path.normpath(path)

@@ -26,6 +26,7 @@ OUROBOROS_RESULT = os.path.join(SEER_SPACE, "ouroboros", "self-result.json")
 IDENTITY_MIRROR_RESULT = os.path.join(SEER_SPACE, "identity-mirror", "result.json")
 INTERFERENCE_ENGINE = os.path.join(SEER_SPACE, "interference", "engine.py")
 NEMESIS_ENGINE = os.path.join(SEER_SPACE, "nemesis", "engine.py")
+NEGATION_ENGINE = os.path.join(SEER_SPACE, "negation", "engine.py")
 OLLAMA_URL = "http://127.0.0.1:11436/api/generate"
 
 def parse_ts_iso(s):
@@ -173,6 +174,7 @@ HTML_HEAD = """<!DOCTYPE html>
     <a href="/coda">Coda</a>
     <a href="/weave">Weave</a>
     <a href="/ouroboros">Ouroboros</a>
+    <a href="/negation">Negation</a>
     <a href="/status">Status</a>
   </nav>
   <h1>{heading}</h1>
@@ -436,8 +438,14 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_nemesis()
         elif path == "/api/nemesis":
             self.handle_nemesis_api()
+        elif path == "/negation":
+            self.handle_negation()
+        elif path == "/api/negation":
+            self.handle_negation_api()
         elif path == "/interference":
             self.handle_interference()
+        elif path == "/api/negation":
+            self.handle_negation_api()
         elif path == "/api/interference":
             self.handle_interference_api()
         elif path.startswith("/static/"):
@@ -455,6 +463,8 @@ class CommonsHandler(BaseHTTPRequestHandler):
         
         if path == "/api/nemesis":
             self.handle_nemesis_api()
+        elif path == "/api/negation":
+            self.handle_negation_api()
         elif path == "/api/interference":
             self.handle_interference_api()
         else:
@@ -798,6 +808,62 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.send_json({"error": "Engine timed out (180s)", "topic": topic}, code=504)
         except Exception as e:
             self.send_json({"error": str(e), "topic": topic}, code=500)
+
+
+    def handle_negation(self):
+        """The Negation Engine — systematic semantic inversion. Serves the static page."""
+        self.send_response(302)
+        self.send_header("Location", "/static/negation.html")
+        self.end_headers()
+
+    def handle_negation_api(self):
+        """POST /api/negation — run the Negation Engine live."""
+        import subprocess, os, json as j, tempfile
+        
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length else b'{}'
+        
+        try:
+            data = j.loads(body.decode('utf-8'))
+        except Exception:
+            data = {}
+        
+        seed = data.get('seed', 'The universe is vast and full of wonders.')
+        generator = data.get('model', 'seer:latest')
+        analyst = data.get('analyst', 'kimi-k2.7-code:cloud')
+        
+        try:
+            tmpf = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            tmpf.close()
+            
+            proc = subprocess.run(
+                ['python3', NEGATION_ENGINE, seed,
+                 '--model', generator,
+                 '--analyst', analyst,
+                 '--output', tmpf.name,
+                 '--quiet'],
+                capture_output=True, text=True, timeout=180,
+                cwd=os.path.dirname(NEGATION_ENGINE)
+            )
+            
+            try:
+                with open(tmpf.name) as f:
+                    result = j.load(f)
+            except Exception:
+                result = {
+                    "seed": seed,
+                    "error": "Could not parse result JSON",
+                    "stderr": proc.stderr[:500]
+                }
+            finally:
+                os.unlink(tmpf.name)
+            
+            self.send_json(result)
+            
+        except subprocess.TimeoutExpired:
+            self.send_json({"error": "Engine timed out (180s)", "seed": seed}, code=504)
+        except Exception as e:
+            self.send_json({"error": str(e), "seed": seed}, code=500)
 
     def handle_seer(self):
         journal = read_text(SEER_JOURNAL, "Journal not found.")

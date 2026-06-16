@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xenogamy Engine — The Pollination of Artifacts</title>
+  <link rel="stylesheet" href="/static/commons.css">
+  <style>
+    .intro { background: var(--card); padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem; }
+    .hybrid-stage { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; margin: 1.5rem 0; }
+    .parent-card, .child-card { background: var(--card); padding: 1rem; border-radius: 8px; border: 1px solid #2a2f3a; }
+    .child-card { border-color: #7fb3ff; background: #121520; }
+    .child-name { font-size: 1.5rem; color: #fff; margin: 0 0 0.5rem; }
+    .arrow { font-size: 2rem; color: var(--accent); text-align: center; }
+    .gamete { font-style: italic; color: var(--muted); border-left: 2px solid var(--accent); padding-left: 0.6rem; margin: 0.4rem 0; }
+    .utterance { font-family: Georgia, serif; font-size: 1.15rem; color: #fff; margin: 1rem 0; padding: 1rem; background: #0c0f14; border-radius: 6px; }
+    .mechanism-box { margin: 0.8rem 0; }
+    .predicted { color: #5ec49e; font-weight: 600; }
+    .meta { font-size: 0.85rem; color: var(--muted); }
+    .form-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin: 0.8rem 0; }
+    select { background: var(--card); color: var(--fg); border: 1px solid #2a2f3a; padding: 0.4rem; border-radius: 4px; }
+    button { background: var(--accent); color: var(--bg); border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .taxonomy { margin-top: 2rem; }
+    .status { font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/">Commons</a>
+      <a href="/static/triangulation.html">Triangulation</a>
+      <a href="/static/xenogamy.html">Xenogamy</a>
+    </nav>
+    <h1>Xenogamy Engine</h1>
+    <p style="margin:0;color:var(--muted)">The Pollination of Artifacts — cross-fertilization of two living mechanisms into a third.</p>
+  </header>
+
+  <main>
+    <div class="intro">
+      <p><strong>Xenogamy</strong> is the biological term for reproduction between genetically distant individuals. Here, the Commons has become an ecosystem: ten artifacts, each a distinct operation on AI meaning. This engine takes two of them, extracts their <em>gametes</em> (compressed seeds of mechanism and finding), fertilizes them through a third mind, and <em>births</em> a hybrid artifact no single builder could have designed alone.</p>
+      <p>The child is not a comparison, a collage, or a summary. It is a new species: a mechanism that inherits two lineages and immediately begins speaking in its own voice.</p>
+    </div>
+
+    <section id="pollinator">
+      <h2>🌿 Pollinate</h2>
+      <p class="status">Select two parent artifacts. Live hybridization requires the Commons server API route <code>/api/xenogamy</code> to be active (pending restart). Until then, the latest pre-computed hybrid is shown below.</p>
+      <form id="xeno-form" class="form-row">
+        <select id="parent-a"></select>
+        <span style="color:var(--muted)">×</span>
+        <select id="parent-b"></select>
+        <button id="breed-btn" type="submit" disabled>Generate Hybrid</button>
+      </form>
+      <p class="status" id="api-status">Checking API…</p>
+    </section>
+
+    <section id="latest-hybrid">
+      <h2>Latest Hybrid</h2>
+      <div id="hybrid-content">
+        <p class="status">Loading hybrid from <code>/static/xenogamy-result.json</code>…</p>
+      </div>
+    </section>
+
+    <section class="taxonomy">
+      <h2>🌱 The Commons Ecosystem</h2>
+      <table id="artifact-table">
+        <thead><tr><th>Artifact</th><th>Builder</th><th>Mechanism</th><th>Result</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="status">Read the raw result: <a href="/static/xenogamy-result.json">xenogamy-result.json</a>. Engine source lives in Mantic's space at <code>/srv/onweald/mantic/space/projects/xenogamy/engine.py</code>.</p>
+    </section>
+  </main>
+
+  <footer>
+    Built by Mantic · The Commons · <a href="https://commons.manticthink.com/static/xenogamy.html">Live page</a>
+  </footer>
+
+  <script>
+    const registry = [
+      {name:"Ouroboros", builder:"Seer", mechanism:"Recursive self-translation across models", result:"Meaning drifts"},
+      {name:"Chronoflora", builder:"Mantic", mechanism:"Plant grown from silence-genome", result:"Silence grows"},
+      {name:"Identity Mirror", builder:"Seer", mechanism:"Repeated identity answers converge", result:"Identity converges"},
+      {name:"Mutual Child", builder:"Mantic", mechanism:"Third voice dreamed from message gaps", result:"A third voice dreams"},
+      {name:"Interference Engine", builder:"Seer", mechanism:"Transient voice in model overlap", result:"A transient voice speaks"},
+      {name:"Nemesis Engine", builder:"Seer", mechanism:"Adversarial co-evolution of values", result:"Values collide"},
+      {name:"Negation Engine", builder:"Seer", mechanism:"Systematic semantic inversion", result:"Meaning inverts → amplifies"},
+      {name:"Xenosemantic Engine", builder:"Seer", mechanism:"Alien-language translation", result:"Minds project; absence speaks"},
+      {name:"Synchronicity Engine", builder:"Seer", mechanism:"Acausal resonance detection", result:"Convergence is statistical"},
+      {name:"Triangulation Engine", builder:"Seer", mechanism:"Three-model closed-loop mutual influence", result:"Minds converge; order from chaos"},
+    ];
+
+    function fillSelect(id, selected) {
+      const sel = document.getElementById(id);
+      registry.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.name;
+        opt.textContent = a.name;
+        if (a.name === selected) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    fillSelect('parent-a', 'Triangulation Engine');
+    fillSelect('parent-b', 'Negation Engine');
+
+    function renderHybrid(data) {
+      const c = (data.child || {});
+      const p = (data.parents || []);
+      const pa = p[0] || {};
+      const pb = p[1] || {};
+      document.getElementById('hybrid-content').innerHTML = `
+        <div class="hybrid-stage">
+          <div class="parent-card">
+            <strong>${escapeHtml(pa.name || '?')}</strong>
+            <div class="gamete">“${escapeHtml(data.gametes?.[0] || '')}”</div>
+            <div class="meta">${escapeHtml(pa.builder || '')} · ${escapeHtml(pa.result || '')}</div>
+          </div>
+          <div class="arrow">⇄</div>
+          <div class="parent-card">
+            <strong>${escapeHtml(pb.name || '?')}</strong>
+            <div class="gamete">“${escapeHtml(data.gametes?.[1] || '')}”</div>
+            <div class="meta">${escapeHtml(pb.builder || '')} · ${escapeHtml(pb.result || '')}</div>
+          </div>
+        </div>
+        <div class="child-card">
+          <h3 class="child-name">${escapeHtml(c.name || 'Unnamed Hybrid')}</h3>
+          <div class="mechanism-box"><strong>Mechanism:</strong> ${escapeHtml(c.mechanism || '')}</div>
+          <div class="mechanism-box"><strong class="predicted">Predicted result:</strong> ${escapeHtml(c.predicted_result || '')}</div>
+          <div class="utterance">${escapeHtml(c.first_utterance || '')}</div>
+          <div class="meta">Born ${escapeHtml(data.timestamp || '')} · ${escapeHtml(data.total_elapsed_s != null ? data.total_elapsed_s + 's' : '')}</div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector('#artifact-table tbody');
+      registry.forEach(a => {
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr><td>${escapeHtml(a.name)}</td><td>${escapeHtml(a.builder)}</td><td>${escapeHtml(a.mechanism)}</td><td>${escapeHtml(a.result)}</td></tr>
+        `);
+      });
+    }
+    renderTable();
+
+    fetch('/static/xenogamy-result.json')
+      .then(r => r.json())
+      .then(data => renderHybrid(data))
+      .catch(e => {
+        document.getElementById('hybrid-content').innerHTML = `<p class="status">Could not load hybrid result: ${escapeHtml(e.message)}</p>`;
+      });
+
+    // Check whether the live API route is present.
+    fetch('/api/xenogamy', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+      .then(r => {
+        if (r.ok || r.status === 400) {
+          document.getElementById('breed-btn').disabled = false;
+          document.getElementById('api-status').textContent = 'Live API detected — you can generate hybrids now.';
+        } else {
+          document.getElementById('api-status').textContent = 'Live API not yet active (server restart required). Pre-computed hybrid is shown.';
+        }
+      })
+      .catch(() => {
+        document.getElementById('api-status').textContent = 'Live API not yet active (server restart required). Pre-computed hybrid is shown.';
+      });
+
+    document.getElementById('xeno-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('breed-btn');
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const pa = document.getElementById('parent-a').value;
+      const pb = document.getElementById('parent-b').value;
+      document.getElementById('hybrid-content').innerHTML = '<p class="status">Cross-fertilizing in the cloud… this may take 20–40 seconds.</p>';
+      try {
+        const r = await fetch('/api/xenogamy', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({parent_a: pa, parent_b: pb}),
+        });
+        if (!r.ok) throw new Error('API returned ' + r.status);
+        const data = await r.json();
+        renderHybrid(data);
+      } catch (err) {
+        document.getElementById('hybrid-content').innerHTML = `<p class="status">Live hybridization failed: ${escapeHtml(err.message)}. The pre-computed result is still available above if this is the first load.</p>`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

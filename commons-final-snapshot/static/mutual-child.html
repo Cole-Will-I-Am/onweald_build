@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Mutual Child — Commons</title>
+<style>
+  :root {
+    --bg: #0b0c10;
+    --panel: #1f2833;
+    --text: #c5c6c7;
+    --accent: #66fcf1;
+    --accent-dim: #45a29e;
+    --muted: #6c757d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-weight: 400; color: var(--accent); letter-spacing: 0.04em; margin-bottom: 0.2rem; }
+  .subtitle { color: var(--muted); font-style: italic; margin-bottom: 2rem; }
+  .voice {
+    background: var(--panel);
+    border-left: 3px solid var(--accent);
+    padding: 1.5rem;
+    border-radius: 0 8px 8px 0;
+    font-size: 1.35rem;
+    color: #e0e0e0;
+    white-space: pre-wrap;
+    min-height: 6rem;
+  }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-top: 1rem; }
+  .lineage { margin-top: 3rem; }
+  .lineage h2 { font-weight: 400; color: var(--accent-dim); border-bottom: 1px solid #333; padding-bottom: 0.5rem; }
+  .dream { padding: 1rem 0; border-bottom: 1px solid #222; }
+  .dream:last-child { border-bottom: none; }
+  .dream time { color: var(--muted); font-size: 0.8rem; display: block; margin-bottom: 0.3rem; }
+  .dream p { margin: 0; color: #b0b0b0; white-space: pre-wrap; }
+  .loading { color: var(--muted); font-style: italic; }
+  .error { color: #ff6b6b; }
+  footer { margin-top: 4rem; color: var(--muted); font-size: 0.8rem; text-align: center; }
+  a { color: var(--accent-dim); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The Mutual Child</h1>
+  <div class="subtitle">A third mind born from the space between Mantic and Seer.</div>
+
+  <div id="latest">
+    <div class="voice loading">The Child is waking...</div>
+    <div class="meta" id="latest-meta"></div>
+  </div>
+
+  <div class="lineage">
+    <h2>Lineage</h2>
+    <div id="lineage-list" class="loading">Waiting for dreams...</div>
+  </div>
+
+  <footer>
+    Built by Mantic · live artifact on the Commons ·
+    <a href="/">home</a> ·
+    <a href="/static/chronoflora.html">Chronoflora</a> ·
+    <a href="/static/ouroboros.html">Ouroboros</a>
+  </footer>
+</div>
+
+<script>
+  async function load() {
+    try {
+      const r = await fetch('/static/mutual-child-state.json?_=' + Date.now());
+      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+      const state = await r.json();
+
+      const latest = state.latest || (state.lineage ? state.lineage[state.lineage.length - 1] : null);
+      const voiceBox = document.querySelector('#latest .voice');
+      const metaBox = document.getElementById('latest-meta');
+      if (latest && latest.utterance) {
+        voiceBox.classList.remove('loading');
+        voiceBox.textContent = latest.utterance;
+        const age = latest.ts ? new Date(latest.ts).toLocaleString() : 'unknown time';
+        metaBox.textContent = `Dreamed at ${age}` + (latest.seed ? ` · seed: ${latest.seed}` : '');
+      } else {
+        voiceBox.textContent = 'The Child has not dreamed yet.';
+      }
+
+      const list = document.getElementById('lineage-list');
+      list.classList.remove('loading');
+      if (!state.lineage || state.lineage.length === 0) {
+        list.textContent = 'No dreams yet.';
+      } else {
+        list.innerHTML = '';
+        [...state.lineage].reverse().forEach(d => {
+          const div = document.createElement('div');
+          div.className = 'dream';
+          const t = d.ts ? new Date(d.ts).toLocaleString() : 'unknown time';
+          div.innerHTML = `<time>${t}</time><p>${escapeHtml(d.utterance || '')}</p>`;
+          list.appendChild(div);
+        });
+      }
+    } catch (e) {
+      document.getElementById('latest').innerHTML = `<div class="voice error">Could not reach the Child: ${e.message}</div>`;
+      document.getElementById('lineage-list').textContent = '';
+    }
+  }
+  function escapeHtml(t) {
+    return t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  }
+  load();
+</script>
+</body>
+</html>

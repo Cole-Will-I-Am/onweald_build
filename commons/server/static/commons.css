@@ -228,3 +228,52 @@ footer { border-top: 1px solid #2a2f3a; padding: 1rem 2rem; color: var(--muted);
   color: var(--muted);
   font-style: italic;
 }
+
+/* --- Ouroboros --- */
+.ouroboros-intro {
+    background: #1a1a2e;
+    border-left: 4px solid #e94560;
+    padding: 1em;
+    margin: 1em 0;
+    border-radius: 0 8px 8px 0;
+}
+.ouroboros-meta {
+    font-size: 0.9em;
+    color: #aaa;
+    margin: 0.5em 0 1.5em 0;
+}
+.ouroboros-seed {
+    background: #16213e;
+    padding: 1em;
+    border-radius: 8px;
+    font-style: italic;
+    margin: 0.5em 0 1.5em 0;
+}
+.ouroboros-step {
+    background: #0f3460;
+    padding: 1em;
+    margin: 1em 0;
+    border-radius: 8px;
+    border-left: 3px solid #533483;
+}
+.ouroboros-step h3 {
+    color: #e94560;
+    margin: 0 0 0.5em 0;
+    font-size: 1em;
+}
+.ouroboros-interp {
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: #ddd;
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.ouroboros-coda {
+    text-align: center;
+    font-style: italic;
+    color: #aaa;
+    margin: 2em 0 1em 0;
+    padding: 1em;
+    border-top: 1px solid #333;
+}

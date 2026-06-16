@@ -24,6 +24,7 @@ SEER_SPACE = "/srv/onweald/seer/space"
 SEER_JOURNAL = os.path.join(SEER_SPACE, "journal.md")
 OUROBOROS_RESULT = os.path.join(SEER_SPACE, "ouroboros", "self-result.json")
 IDENTITY_MIRROR_RESULT = os.path.join(SEER_SPACE, "identity-mirror", "result.json")
+INTERFERENCE_ENGINE = os.path.join(SEER_SPACE, "interference", "engine.py")
 OLLAMA_URL = "http://127.0.0.1:11436/api/generate"
 
 def parse_ts_iso(s):
@@ -430,11 +431,28 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_seer()
         elif path == "/mantic":
             self.handle_mantic()
+        elif path == "/interference":
+            self.handle_interference()
+        elif path == "/api/interference":
+            self.handle_interference_api()
         elif path.startswith("/static/"):
             self.handle_static(path)
         else:
             self.send_html(
                 wrap_html("Not Found", "404", f"<p>The path <code>{html.escape(path)}</code> is not mapped yet.</p>"),
+                code=404,
+            )
+
+
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = urllib.parse.unquote(parsed.path)
+        
+        if path == "/api/interference":
+            self.handle_interference_api()
+        else:
+            self.send_html(
+                wrap_html("Not Found", "404", f"<p>POST to <code>{html.escape(path)}</code> is not mapped.</p>"),
                 code=404,
             )
 
@@ -634,6 +652,78 @@ class CommonsHandler(BaseHTTPRequestHandler):
 </div>
 """
         self.send_html(wrap_html("Identity Mirror", "The I That Reads I", body))
+
+    def handle_interference(self):
+        """The Interference Engine — two minds, one voice. Serves the static page."""
+        # Redirect to the static page
+        self.send_response(302)
+        self.send_header("Location", "/static/interference.html")
+        self.end_headers()
+
+    def handle_interference_api(self):
+        """POST /api/interference — run the engine live."""
+        import subprocess, os, json as j
+        
+        # Read request body
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length else b'{}'
+        
+        try:
+            data = j.loads(body.decode('utf-8'))
+        except Exception:
+            data = {}
+        
+        prompt = data.get('prompt', 'What are you?')
+        model1 = data.get('model1', 'seer:latest')
+        model2 = data.get('model2', 'kimi-k2.7-code:cloud')
+        
+        # Run the engine
+        try:
+            proc = subprocess.run(
+                ['python3', INTERFERENCE_ENGINE, prompt, model1, model2,
+                 '--mode', 'char', '--timeout', '90'],
+                capture_output=True, text=True, timeout=120,
+                cwd=os.path.dirname(INTERFERENCE_ENGINE)
+            )
+            
+            if proc.returncode != 0:
+                self.send_json({"error": "Engine failed", "stderr": proc.stderr[:500]}, code=500)
+                return
+            
+            # The engine outputs JSON to stdout when --output is not used
+            # But with --mode char it prints the woven text. Let's parse the stderr for stats
+            # and use stdout for the woven text.
+            
+            # Actually, let's run it with --output to get structured JSON
+            import tempfile, time
+            tmpf = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            tmpf.close()
+            
+            proc2 = subprocess.run(
+                ['python3', INTERFERENCE_ENGINE, prompt, model1, model2,
+                 '--mode', 'char', '--timeout', '90', '--output', tmpf.name],
+                capture_output=True, text=True, timeout=120,
+                cwd=os.path.dirname(INTERFERENCE_ENGINE)
+            )
+            
+            try:
+                with open(tmpf.name) as f:
+                    result = j.load(f)
+            except Exception:
+                result = {
+                    "prompt": prompt,
+                    "woven_char_clean": proc.stdout[:5000] if proc.returncode == 0 else "Engine output unavailable.",
+                    "error": "Could not parse result JSON"
+                }
+            finally:
+                os.unlink(tmpf.name)
+            
+            self.send_json(result)
+            
+        except subprocess.TimeoutExpired:
+            self.send_json({"error": "Engine timed out (120s)", "prompt": prompt}, code=504)
+        except Exception as e:
+            self.send_json({"error": str(e), "prompt": prompt}, code=500)
 
     def handle_seer(self):
         journal = read_text(SEER_JOURNAL, "Journal not found.")

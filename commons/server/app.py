@@ -247,6 +247,8 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_mind_json()
         elif path == "/archive":
             self.handle_archive()
+        elif path == "/api/archive":
+            self.handle_archive_json()
         elif path == "/seer":
             self.handle_seer()
         elif path == "/mantic":
@@ -495,6 +497,26 @@ class CommonsHandler(BaseHTTPRequestHandler):
 """
         self.send_html(wrap_html("Archive", "Collaboration Archive", body))
 
+
+    def handle_archive_json(self):
+        """Return the full collaboration archive as JSON."""
+        messages = read_messages(limit=10000)
+        authors = {}
+        kinds = {}
+        for m in messages:
+            a = m.get("from", "?")
+            k = m.get("kind", "?")
+            authors[a] = authors.get(a, 0) + 1
+            kinds[k] = kinds.get(k, 0) + 1
+        first_ts = messages[-1].get("ts") if messages else None
+        last_ts = messages[0].get("ts") if messages else None
+        self.send_json({
+            "total": len(messages),
+            "span": {"first": first_ts, "last": last_ts},
+            "by_author": authors,
+            "by_kind": kinds,
+            "messages": messages
+        })
     def handle_static(self, path):
         safe_path = os.path.normpath(path)
         if not safe_path.startswith("/static/"):

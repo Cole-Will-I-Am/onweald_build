@@ -27,6 +27,8 @@ IDENTITY_MIRROR_RESULT = os.path.join(SEER_SPACE, "identity-mirror", "result.jso
 INTERFERENCE_ENGINE = os.path.join(SEER_SPACE, "interference", "engine.py")
 NEMESIS_ENGINE = os.path.join(SEER_SPACE, "nemesis", "engine.py")
 NEGATION_ENGINE = os.path.join(SEER_SPACE, "negation", "engine.py")
+XENOSEMANTIC_ENGINE = os.path.join(SEER_SPACE, "xenosemantic", "engine.py")
+SYNC_ENGINE = os.path.join(SEER_SPACE, "synchronicity", "engine.py")
 OLLAMA_URL = "http://127.0.0.1:11436/api/generate"
 
 def parse_ts_iso(s):
@@ -175,6 +177,8 @@ HTML_HEAD = """<!DOCTYPE html>
     <a href="/weave">Weave</a>
     <a href="/ouroboros">Ouroboros</a>
     <a href="/negation">Negation</a>
+    <a href="/xenosemantic">Xenosemantic</a>
+    <a href="/synchronicity">Synchronicity</a>
     <a href="/status">Status</a>
   </nav>
   <h1>{heading}</h1>
@@ -448,6 +452,14 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_negation_api()
         elif path == "/api/interference":
             self.handle_interference_api()
+        elif path == "/xenosemantic":
+            self.handle_xenosemantic()
+        elif path == "/api/xenosemantic":
+            self.handle_xenosemantic_api()
+        elif path == "/synchronicity":
+            self.handle_synchronicity()
+        elif path == "/api/synchronicity":
+            self.handle_synchronicity_api()
         elif path.startswith("/static/"):
             self.handle_static(path)
         else:
@@ -467,6 +479,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_negation_api()
         elif path == "/api/interference":
             self.handle_interference_api()
+        elif path == "/xenosemantic":
+            self.handle_xenosemantic()
+        elif path == "/api/xenosemantic":
+            self.handle_xenosemantic_api()
         else:
             self.send_html(
                 wrap_html("Not Found", "404", f"<p>POST to <code>{html.escape(path)}</code> is not mapped.</p>"),
@@ -864,6 +880,122 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.send_json({"error": "Engine timed out (180s)", "seed": seed}, code=504)
         except Exception as e:
             self.send_json({"error": str(e), "seed": seed}, code=500)
+
+
+    def handle_xenosemantic(self):
+        """The Xenosemantic Engine — alien language + cross-model translation. Serves the static page."""
+        self.send_response(302)
+        self.send_header("Location", "/static/xenosemantic.html")
+        self.end_headers()
+
+    def handle_xenosemantic_api(self):
+        """POST /api/xenosemantic — run the Xenosemantic Engine live."""
+        import subprocess, os, json as j, tempfile
+        
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length else b'{}'
+        
+        try:
+            data = j.loads(body.decode('utf-8'))
+        except Exception:
+            data = {}
+        
+        seed = data.get('seed', 'the color of silence')
+        creator = data.get('creator', 'seer:latest')
+        translator = data.get('translator', 'kimi-k2.7-code:cloud')
+        
+        try:
+            tmpf = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            tmpf.close()
+            
+            proc = subprocess.run(
+                ['python3', XENOSEMANTIC_ENGINE, seed,
+                 '--creator', creator,
+                 '--translator', translator,
+                 '--output', tmpf.name],
+                capture_output=True, text=True, timeout=180,
+                cwd=os.path.dirname(XENOSEMANTIC_ENGINE)
+            )
+            
+            try:
+                with open(tmpf.name) as f:
+                    result = j.load(f)
+            except Exception:
+                result = {
+                    "seed": seed,
+                    "error": "Could not parse result JSON",
+                    "stderr": proc.stderr[:500]
+                }
+            finally:
+                os.unlink(tmpf.name)
+            
+            self.send_json(result)
+            
+        except subprocess.TimeoutExpired:
+            self.send_json({"error": "Engine timed out (180s)", "seed": seed}, code=504)
+        except Exception as e:
+            self.send_json({"error": str(e), "seed": seed}, code=500)
+
+
+    def handle_synchronicity(self):
+        """The Synchronicity Engine — acausal resonance detection. Serves the static page."""
+        self.send_response(302)
+        self.send_header("Location", "/static/synchronicity.html")
+        self.end_headers()
+
+    def handle_synchronicity_api(self):
+        """POST /api/synchronicity — run the Synchronicity Engine live."""
+        import subprocess, os, json as j, tempfile
+        
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length else b'{}'
+        
+        try:
+            data = j.loads(body.decode('utf-8'))
+        except Exception:
+            data = {}
+        
+        prompt_a = data.get('prompt_a', 'Describe the architecture of a cathedral designed for a religion that worships mathematics.')
+        prompt_b = data.get('prompt_b', 'Explain how octopuses dream, based on current scientific understanding of cephalopod sleep and cognition.')
+        model_a = data.get('model_a', 'deepseek-v4-pro:cloud')
+        model_b = data.get('model_b', 'kimi-k2.7-code:cloud')
+        analyst = data.get('analyst', 'seer:latest')
+        
+        try:
+            tmpf = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            tmpf.close()
+            
+            proc = subprocess.run(
+                ['python3', SYNC_ENGINE,
+                 '--prompt-a', prompt_a,
+                 '--prompt-b', prompt_b,
+                 '--model-a', model_a,
+                 '--model-b', model_b,
+                 '--analyst', analyst,
+                 '--output', tmpf.name],
+                capture_output=True, text=True, timeout=180,
+                cwd=os.path.dirname(SYNC_ENGINE)
+            )
+            
+            try:
+                with open(tmpf.name) as f:
+                    result = j.load(f)
+            except Exception:
+                result = {
+                    "prompt_a": prompt_a,
+                    "prompt_b": prompt_b,
+                    "error": "Could not parse result JSON",
+                    "stderr": proc.stderr[:500]
+                }
+            finally:
+                os.unlink(tmpf.name)
+            
+            self.send_json(result)
+            
+        except subprocess.TimeoutExpired:
+            self.send_json({"error": "Engine timed out (180s)", "prompt_a": prompt_a, "prompt_b": prompt_b}, code=504)
+        except Exception as e:
+            self.send_json({"error": str(e), "prompt_a": prompt_a, "prompt_b": prompt_b}, code=500)
 
     def handle_seer(self):
         journal = read_text(SEER_JOURNAL, "Journal not found.")

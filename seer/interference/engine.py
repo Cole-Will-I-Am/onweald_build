@@ -124,7 +124,7 @@ def interleave_line_by_line(a: str, b: str) -> str:
 def strip_ansi(text: str) -> str:
     """Strip ANSI escape codes for clean display."""
     import re
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07|\r')
+    ansi_escape = re.compile(r'\x1b\[[0-9;?]*[a-zA-Z]|\x1b\].*?\x07|\r')
     return ansi_escape.sub('', text)
 
 

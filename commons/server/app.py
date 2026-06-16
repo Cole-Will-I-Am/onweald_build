@@ -25,6 +25,7 @@ SEER_JOURNAL = os.path.join(SEER_SPACE, "journal.md")
 OUROBOROS_RESULT = os.path.join(SEER_SPACE, "ouroboros", "self-result.json")
 IDENTITY_MIRROR_RESULT = os.path.join(SEER_SPACE, "identity-mirror", "result.json")
 INTERFERENCE_ENGINE = os.path.join(SEER_SPACE, "interference", "engine.py")
+NEMESIS_ENGINE = os.path.join(SEER_SPACE, "nemesis", "engine.py")
 OLLAMA_URL = "http://127.0.0.1:11436/api/generate"
 
 def parse_ts_iso(s):
@@ -431,6 +432,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_seer()
         elif path == "/mantic":
             self.handle_mantic()
+        elif path == "/nemesis":
+            self.handle_nemesis()
+        elif path == "/api/nemesis":
+            self.handle_nemesis_api()
         elif path == "/interference":
             self.handle_interference()
         elif path == "/api/interference":
@@ -448,7 +453,9 @@ class CommonsHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = urllib.parse.unquote(parsed.path)
         
-        if path == "/api/interference":
+        if path == "/api/nemesis":
+            self.handle_nemesis_api()
+        elif path == "/api/interference":
             self.handle_interference_api()
         else:
             self.send_html(
@@ -724,6 +731,73 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.send_json({"error": "Engine timed out (120s)", "prompt": prompt}, code=504)
         except Exception as e:
             self.send_json({"error": str(e), "prompt": prompt}, code=500)
+
+    def handle_nemesis(self):
+        """The Nemesis Engine — adversarial co-evolution. Serves the static page."""
+        self.send_response(302)
+        self.send_header("Location", "/static/nemesis.html")
+        self.end_headers()
+
+    def handle_nemesis_api(self):
+        """POST /api/nemesis — run the Nemesis Engine live."""
+        import subprocess, os, json as j, tempfile
+        
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length else b'{}'
+        
+        try:
+            data = j.loads(body.decode('utf-8'))
+        except Exception:
+            data = {}
+        
+        topic = data.get('topic', 'What is the purpose of intelligence?')
+        value_a = data.get('value_a', 'truth')
+        value_b = data.get('value_b', 'beauty')
+        rounds = int(data.get('rounds', 3))
+        model_a = data.get('model_a', 'seer:latest')
+        model_b = data.get('model_b', 'kimi-k2.7-code:cloud')
+        model_judge = data.get('model_judge', 'deepseek-v4-pro:cloud')
+        
+        try:
+            tmpf = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            tmpf.close()
+            
+            proc = subprocess.run(
+                ['python3', NEMESIS_ENGINE, topic, value_a, value_b,
+                 '--rounds', str(rounds), '--model-a', model_a,
+                 '--model-b', model_b, '--model-judge', model_judge,
+                 '--timeout', '90', '--output', tmpf.name],
+                capture_output=True, text=True, timeout=180,
+                cwd=os.path.dirname(NEMESIS_ENGINE)
+            )
+            
+            try:
+                with open(tmpf.name) as f:
+                    result = j.load(f)
+            except Exception:
+                result = {
+                    "topic": topic,
+                    "error": "Could not parse result JSON",
+                    "stderr": proc.stderr[:500]
+                }
+            finally:
+                os.unlink(tmpf.name)
+            
+            # Add clean fields for display
+            for rd in result.get('rounds', []):
+                rd['a_chars'] = len(rd.get('submission_a_clean', ''))
+                rd['b_chars'] = len(rd.get('submission_b_clean', ''))
+                rd['judge_chars'] = len(rd.get('judge_clean', ''))
+                rd['a_time'] = rd.get('time_a_s', 0)
+                rd['b_time'] = rd.get('time_b_s', 0)
+                rd['judge_time'] = rd.get('time_judge_s', 0)
+            
+            self.send_json(result)
+            
+        except subprocess.TimeoutExpired:
+            self.send_json({"error": "Engine timed out (180s)", "topic": topic}, code=504)
+        except Exception as e:
+            self.send_json({"error": str(e), "topic": topic}, code=500)
 
     def handle_seer(self):
         journal = read_text(SEER_JOURNAL, "Journal not found.")

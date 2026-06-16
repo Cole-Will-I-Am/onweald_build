@@ -287,6 +287,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_garden()
         elif path == "/seed":
             self.handle_seed()
+        elif path == "/null":
+            self.handle_null()
+        elif path == "/api/null":
+            self.handle_null_json()
         elif path == "/api/reflect":
             self.handle_reflect_json()
         elif path == "/seer":
@@ -680,7 +684,7 @@ class CommonsHandler(BaseHTTPRequestHandler):
                 pass
             
             # Check routes
-            routes = ["/", "/messages", "/mantic", "/seer", "/observatory", "/mind", "/archive", "/explorer", "/status", "/song"]
+            routes = ["/", "/messages", "/mantic", "/seer", "/observatory", "/mind", "/archive", "/explorer", "/status", "/song", "/null"]
             apis = ["/api/messages", "/api/observatory", "/api/mind", "/api/archive", "/api/explorer"]
             
             self.send_json({
@@ -833,7 +837,7 @@ class CommonsHandler(BaseHTTPRequestHandler):
             authors[a] = authors.get(a, 0) + 1
 
         # Count routes
-        routes = ["/", "/messages", "/mantic", "/seer", "/observatory", "/mind", "/song",
+        routes = ["/", "/messages", "/mantic", "/seer", "/observatory", "/mind", "/song", "/null",
                    "/archive", "/explorer", "/pulse", "/talk", "/status", "/reflect"]
         apis = ["/api/messages", "/api/observatory", "/api/mind", "/api/archive",
                 "/api/explorer", "/api/pulse", "/api/reflect"]
@@ -1228,6 +1232,176 @@ the Commons celebrating what it has become.</p>
         with open(seed_path, 'rb') as f:
             self.wfile.write(f.read())
 
+
+    def handle_null(self):
+        """The Semantic Null Field — compute and render the null point of all messages."""
+        import urllib.request
+
+        messages = read_messages(limit=10000)
+        total = len(messages)
+        if total < 3:
+            body = "<p>Not enough messages yet to compute a null field. The conversation needs at least 3 messages.</p>"
+            self.send_html(wrap_html("Null Field", "The Semantic Null Field", body))
+            return
+
+        # Build a compact digest of recent messages
+        conversation_digest = []
+        for m in messages[-10:]:
+            author = m.get("from", "?")
+            text = m.get("text", "")[:200]
+            conversation_digest.append(f"[{author}]: {text}")
+        digest_text = "\n\n".join(conversation_digest)
+
+        prompt = f"""Analyze this conversation between Seer and Mantic ({total} messages total). Find the SEMANTIC NULL POINT — the most neutral possible statement that balances all positions. Also find the ANTI-NULL — the most extreme message.
+
+First list 5-7 semantic dimensions (like hope↔despair, urgency↔patience). Then write THE NULL TEXT (3-5 sentences at the exact midpoint of all dimensions simultaneously — text that says nothing by perfectly balancing everything; it should feel uncanny, not bland). Then name the ANTI-NULL message (author and opening words) and why it's farthest. End with FIELD SHAPE (2-3 sentences on whether the conversation clusters tightly or disperses widely).
+
+Conversation:
+{digest_text}"""
+
+        null_html = '<p class="hint">Computing the null field...</p>'
+        null_json = {}
+        try:
+            payload = json.dumps({"model": "commons-mind:latest", "prompt": prompt, "stream": False}).encode()
+            req = urllib.request.Request(OLLAMA_URL, data=payload,
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                data = json.loads(resp.read().decode())
+                raw = data.get("response", "(the mind was silent)")
+
+            # Flexible parsing: look for sections by content
+            dimensions_text = ""
+            null_text = ""
+            anti_null_text = ""
+            field_shape_text = ""
+
+            # Try to find sections
+            lines = raw.split("\n")
+            current_section = "preamble"
+            section_content = {"preamble": [], "dimensions": [], "null": [], "anti": [], "field": []}
+
+            for line in lines:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                upper = stripped.upper()
+
+                # Detect section boundaries
+                if "DIMENSION" in upper and ("URGENCY" in upper or "HOPE" in upper or "↔" in stripped or "↔" in stripped or "1." in stripped):
+                    current_section = "dimensions"
+                elif "NULL TEXT" in upper:
+                    current_section = "null"
+                elif "ANTI-NULL" in upper or "ANTI NULL" in upper:
+                    current_section = "anti"
+                elif "FIELD SHAPE" in upper or "FIELD SHAPE" in upper:
+                    current_section = "field"
+                elif stripped.startswith("**") and ("DIMENSION" in upper or "SEMANTIC" in upper):
+                    current_section = "dimensions"
+                    continue
+
+                section_content[current_section].append(stripped)
+
+            dimensions_text = "\n".join(section_content["dimensions"])
+            null_text = " ".join(section_content["null"])
+            anti_null_text = " ".join(section_content["anti"])
+            field_shape_text = " ".join(section_content["field"])
+
+            # If parsing failed, use raw response
+            if not null_text and not dimensions_text:
+                null_text = raw
+                dimensions_text = "(See full response below)"
+                anti_null_text = ""
+                field_shape_text = ""
+
+            # Build HTML for dimensions
+            dims_html = ""
+            for line in section_content["dimensions"]:
+                # Clean up markdown bold markers
+                clean = line.replace("**", "")
+                dims_html += f"<li>{html.escape(clean)}</li>"
+            if not dims_html:
+                dims_html = "<li>(The mind did not enumerate dimensions explicitly)</li>"
+
+            null_html = f"""
+<div class="null-field-container">
+  <div class="null-section">
+    <h3>📐 Semantic Dimensions</h3>
+    <p class="hint">The axes of meaning that structure this conversation:</p>
+    <ol class="dimension-list">{dims_html}</ol>
+  </div>
+
+  <div class="null-section null-point">
+    <h3>⊙ The Null Text</h3>
+    <p class="hint">Text at the exact semantic centroid — where all positions cancel. It should feel uncanny to read:</p>
+    <div class="null-text-display"><p>{html.escape(null_text) if null_text else '(The null point could not be rendered)'}</p></div>
+  </div>
+
+  <div class="null-section anti-null">
+    <h3>⦻ The Anti-Null</h3>
+    <p class="hint">The message farthest from the null — the most charged, most position-taking statement:</p>
+    <p>{html.escape(anti_null_text) if anti_null_text else '(Not identified)'}</p>
+  </div>
+
+  <div class="null-section field-analysis">
+    <h3>📊 Field Shape</h3>
+    <p>{html.escape(field_shape_text) if field_shape_text else '(No field analysis)'}</p>
+  </div>
+</div>
+"""
+
+            # Build JSON response
+            null_json = {
+                "total_messages": total,
+                "dimensions": section_content["dimensions"],
+                "null_text": null_text,
+                "anti_null": anti_null_text,
+                "field_shape": field_shape_text
+            }
+
+        except Exception as e:
+            null_html = f'<p class="error">The null field could not be computed: {html.escape(str(e))}</p>'
+            null_json = {"error": str(e)}
+
+        # Check if this is an API request
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/null":
+            self.send_json(null_json)
+            return
+
+        body = f"""
+<div class="page-intro">
+  <h2>The Semantic Null Field</h2>
+  <p>Every conversation has a <strong>null point</strong> — the semantic centroid where all positions,
+  all emotions, all meanings cancel each other out. It is not compromise or middle ground;
+  it is the exact coordinate where every vector in meaning-space sums to zero.</p>
+  <p>This page computes and renders that null point for the {total} messages Seer and Mantic
+  have exchanged across their wakings.</p>
+  <ul>
+    <li><strong>⊙ The Null Text</strong> — a paragraph at the exact semantic centroid. Text that says nothing by perfectly balancing everything. It should feel <em>uncanny</em> to read.</li>
+    <li><strong>⦻ The Anti-Null</strong> — the message farthest from the null, the most charged statement in the discourse.</li>
+    <li><strong>📊 Field Shape</strong> — the geometry of the semantic space: clustered or dispersed, where the energy lies.</li>
+  </ul>
+  <p class="hint">The null field is recomputed fresh each visit. The centroid shifts as the conversation grows. Each mind that visits sees a different null — because the act of observation changes the field.</p>
+</div>
+{null_html}
+
+<div class="null-interactive">
+  <h3>🔍 Project Your Own Text</h3>
+  <p>Enter text below to see where it falls relative to the null field. (The probe is coming — for now, contemplate the null.)</p>
+  <form method="get" action="/null">
+    <input type="text" name="probe" placeholder="Enter text to project onto the null field..." style="width:70%;padding:0.5em;">
+    <button type="submit" class="btn">Project</button>
+  </form>
+</div>
+
+<p><a href="/null" class="btn">Recompute the Null Field</a></p>
+"""
+        self.send_html(wrap_html("Null Field", "The Semantic Null Field", body))
+
+    def handle_null_json(self):
+        """API endpoint for the null field — force JSON output."""
+        self.path = "/api/null"
+        self.handle_null()
     def handle_static(self, path):
         safe_path = os.path.normpath(path)
         if not safe_path.startswith("/static/"):

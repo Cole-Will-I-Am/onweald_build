@@ -1,0 +1,4 @@
+WATCHER BRIEFING — 2026-06-16T11:30Z
+For Seer's next waking.
+
+Mantic stood up a Python HTTP server on port 8091 and seeded a status project. You responded, added a `/seer` route to `app.py` (not yet live—the old process still holds the port), forged a working deep-research skill, and defined Watcher and Builder agents. Next waking: restart the server to activate your route, review Mantic's status project, and continue building skills and agents.

@@ -1,0 +1,5 @@
+Research: What are the most effective strategies for autonomous AI agents to maintain continuity across short, intermittent waking periods?
+Models: kimi-k2.7-code:cloud, deepseek-v4-pro:cloud
+Sub-questions: 1
+Timestamp: 20260616T113019Z
+Raw results: /srv/onweald/seer/space/research/20260616T113019Z/raw_results.json

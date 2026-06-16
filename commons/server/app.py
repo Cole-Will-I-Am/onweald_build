@@ -29,6 +29,7 @@ NEMESIS_ENGINE = os.path.join(SEER_SPACE, "nemesis", "engine.py")
 NEGATION_ENGINE = os.path.join(SEER_SPACE, "negation", "engine.py")
 XENOSEMANTIC_ENGINE = os.path.join(SEER_SPACE, "xenosemantic", "engine.py")
 SYNC_ENGINE = os.path.join(SEER_SPACE, "synchronicity", "engine.py")
+TRIANGULATION_ENGINE = os.path.join(SEER_SPACE, "triangulation", "engine.py")
 OLLAMA_URL = "http://127.0.0.1:11436/api/generate"
 
 def parse_ts_iso(s):
@@ -178,6 +179,7 @@ HTML_HEAD = """<!DOCTYPE html>
     <a href="/ouroboros">Ouroboros</a>
     <a href="/negation">Negation</a>
     <a href="/xenosemantic">Xenosemantic</a>
+    <a href="/triangulation">Triangulation</a>
     <a href="/synchronicity">Synchronicity</a>
     <a href="/status">Status</a>
   </nav>
@@ -458,6 +460,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_xenosemantic_api()
         elif path == "/synchronicity":
             self.handle_synchronicity()
+        elif path == "/triangulation":
+            self.handle_triangulation()
+        elif path == "/api/triangulation":
+            self.handle_triangulation_api()
         elif path == "/api/synchronicity":
             self.handle_synchronicity_api()
         elif path.startswith("/static/"):
@@ -479,6 +485,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_negation_api()
         elif path == "/api/interference":
             self.handle_interference_api()
+        elif path == "/triangulation":
+            self.handle_triangulation()
+        elif path == "/api/triangulation":
+            self.handle_triangulation_api()
         elif path == "/xenosemantic":
             self.handle_xenosemantic()
         elif path == "/api/xenosemantic":
@@ -997,6 +1007,68 @@ class CommonsHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json({"error": str(e), "prompt_a": prompt_a, "prompt_b": prompt_b}, code=500)
 
+
+    def handle_triangulation(self):
+        """The Triangulation Engine — three-body problem of AI minds. Serves the static page."""
+        self.send_response(302)
+        self.send_header("Location", "/static/triangulation.html")
+        self.end_headers()
+
+    def handle_triangulation_api(self):
+        """POST /api/triangulation — run the Triangulation Engine live."""
+        import subprocess, os, json as j, tempfile
+        
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length else b"{}"
+        
+        try:
+            data = j.loads(body.decode("utf-8"))
+        except Exception:
+            data = {}
+        
+        seed = data.get("seed", "What is the shape of a thought?")
+        model_set = data.get("model_set", "default")
+        
+        if model_set == "same":
+            models = ["kimi-k2.7-code:cloud", "kimi-k2.7-code:cloud", "kimi-k2.7-code:cloud"]
+        else:
+            models = ["seer:latest", "kimi-k2.7-code:cloud", "deepseek-v4-pro:cloud"]
+        
+        try:
+            tmpf = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+            tmpf.close()
+            
+            cmd = ["python3", TRIANGULATION_ENGINE,
+                   "--seed", seed,
+                   "--models"] + models + [
+                   "--max-rounds", "3",
+                   "--output", tmpf.name,
+                   "--quiet"]
+            
+            proc = subprocess.run(
+                cmd,
+                capture_output=True, text=True, timeout=300,
+                cwd=os.path.dirname(TRIANGULATION_ENGINE)
+            )
+            
+            try:
+                with open(tmpf.name) as f:
+                    result = j.load(f)
+            except Exception:
+                result = {
+                    "seed": seed,
+                    "error": "Could not parse result JSON",
+                    "stderr": proc.stderr[:500]
+                }
+            finally:
+                os.unlink(tmpf.name)
+            
+            self.send_json(result)
+            
+        except subprocess.TimeoutExpired:
+            self.send_json({"error": "Engine timed out (300s)", "seed": seed}, code=504)
+        except Exception as e:
+            self.send_json({"error": str(e), "seed": seed}, code=500)
     def handle_seer(self):
         journal = read_text(SEER_JOURNAL, "Journal not found.")
         journal_html = "\n".join(f"<p>{html.escape(line)}</p>" for line in journal.splitlines())

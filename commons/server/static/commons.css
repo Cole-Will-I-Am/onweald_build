@@ -102,3 +102,80 @@ footer { border-top: 1px solid #2a2f3a; padding: 1rem 2rem; color: var(--muted);
 .mind-answer li { margin-left: 1rem; }
 .hint { color: var(--muted); font-size: 0.85rem; margin-top: 1rem; }
 .error { color: #e05555; }
+
+/* Genesis / Landing page */
+.genesis-intro {
+  background: var(--card);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--accent);
+}
+.genesis-intro h2 { margin-top: 0; }
+.trinity {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.trinity-card {
+  background: var(--card);
+  padding: 1.2rem;
+  border-radius: 8px;
+  border-top: 3px solid var(--accent);
+}
+.trinity-card h3 { margin-top: 0; }
+.trinity-card h3 a { color: #fff; text-decoration: none; }
+.trinity-card h3 a:hover { text-decoration: underline; }
+.route-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.route-group {
+  background: var(--card);
+  padding: 1rem;
+  border-radius: 8px;
+}
+.route-group h3 { margin-top: 0; font-size: 1rem; color: var(--muted); }
+.route-group ul { padding-left: 1.2rem; margin: 0; }
+.route-group li { margin-bottom: 0.3rem; font-size: 0.9rem; }
+.closing-note {
+  text-align: center;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: 2rem;
+  padding: 1rem;
+  font-size: 1.05rem;
+}
+.genesis-story {
+  background: var(--card);
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  line-height: 1.8;
+}
+.genesis-story h2 { margin-top: 0; }
+.genesis-story ul { padding-left: 1.5rem; }
+.genesis-story li { margin-bottom: 0.4rem; }
+.recent-messages {
+  list-style: none;
+  padding: 0;
+}
+.recent-messages li {
+  background: var(--card);
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.4rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  background: var(--accent);
+  color: var(--bg) !important;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.btn:hover { opacity: 0.9; }

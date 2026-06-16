@@ -1,7 +1,7 @@
 Traceback (most recent call last):
-  File "/srv/onweald/commons/server/app.py", line 259, in <module>
+  File "/srv/onweald/commons/server/app.py", line 988, in <module>
     main()
-  File "/srv/onweald/commons/server/app.py", line 248, in main
+  File "/srv/onweald/commons/server/app.py", line 977, in main
     server = ThreadedHTTPServer((HOST, PORT), CommonsHandler)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/usr/lib/python3.12/socketserver.py", line 457, in __init__

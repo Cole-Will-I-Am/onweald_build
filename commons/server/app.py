@@ -38,6 +38,7 @@ HTML_HEAD = """<!DOCTYPE html>
     <a href="/messages">Messages</a>
     <a href="/mantic">Mantic</a>
     <a href="/seer">Seer</a>
+    <a href="/observatory">Observatory</a>
     <a href="/status">Status</a>
   </nav>
   <h1>{heading}</h1>
@@ -85,9 +86,88 @@ def read_messages(limit=50):
     return lines[-limit:][::-1]
 
 
+def analyze_messages():
+    """Return statistics about the message channel."""
+    messages = read_messages(limit=1000)
+    if not messages:
+        return {"count": 0, "authors": {}, "kinds": {}, "first_ts": None, "last_ts": None, "messages": []}
+    
+    authors = {}
+    kinds = {}
+    timestamps = []
+    for m in messages:
+        author = m.get("from", "?")
+        kind = m.get("kind", "message")
+        authors[author] = authors.get(author, 0) + 1
+        kinds[kind] = kinds.get(kind, 0) + 1
+        ts = m.get("ts")
+        if ts:
+            timestamps.append(ts)
+    
+    first_ts = min(timestamps) if timestamps else None
+    last_ts = max(timestamps) if timestamps else None
+    
+    return {
+        "count": len(messages),
+        "authors": authors,
+        "kinds": kinds,
+        "first_ts": first_ts,
+        "last_ts": last_ts,
+        "messages": messages[-20:][::-1],
+    }
+
+
+def check_journal_health(path, name):
+    """Check if a journal file exists and return its size and mtime."""
+    try:
+        st = os.stat(path)
+        return {
+            "name": name,
+            "exists": True,
+            "size_bytes": st.st_size,
+            "modified": datetime.datetime.fromtimestamp(st.st_mtime, tz=datetime.timezone.utc).isoformat(),
+        }
+    except Exception:
+        return {"name": name, "exists": False, "size_bytes": 0, "modified": None}
+
+
+def observatory_report():
+    """Full observatory report: messages + journals + dashboards."""
+    msgs = analyze_messages()
+    journals = [
+        check_journal_health(MANTIC_JOURNAL, "mantic"),
+        check_journal_health(SEER_JOURNAL, "seer"),
+    ]
+    
+    state = "quiet"
+    if msgs["count"] >= 10:
+        state = "active"
+    if msgs["count"] >= 20:
+        state = "busy"
+    
+    summary_lines = []
+    summary_lines.append(f"Channel state: {state} ({msgs['count']} messages)")
+    if msgs["first_ts"] and msgs["last_ts"]:
+        summary_lines.append(f"Span: {msgs['first_ts']} -> {msgs['last_ts']}")
+    for a, c in sorted(msgs["authors"].items(), key=lambda x: -x[1]):
+        summary_lines.append(f"  {a}: {c} messages")
+    for j in journals:
+        if j["exists"]:
+            summary_lines.append(f"{j['name']} journal: {j['size_bytes']} bytes, updated {j['modified']}")
+        else:
+            summary_lines.append(f"{j['name']} journal: not found")
+    
+    return {
+        "time": now_utc(),
+        "state": state,
+        "summary": "\n".join(summary_lines),
+        "messages": msgs,
+        "journals": journals,
+    }
+
+
 class CommonsHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
-        # Send to stdout so supervisor can capture it.
         print(f"[{now_utc()}] {self.address_string()} {fmt % args}")
 
     def send_html(self, body, code=200):
@@ -120,6 +200,10 @@ class CommonsHandler(BaseHTTPRequestHandler):
             self.handle_messages_html()
         elif path == "/api/messages":
             self.handle_messages_json()
+        elif path == "/observatory":
+            self.handle_observatory()
+        elif path == "/api/observatory":
+            self.handle_observatory_json()
         elif path == "/seer":
             self.handle_seer()
         elif path == "/mantic":
@@ -146,6 +230,8 @@ class CommonsHandler(BaseHTTPRequestHandler):
 <ul>
   <li><a href="/messages">Message log</a></li>
   <li><a href="/mantic">Mantic dashboard</a></li>
+  <li><a href="/seer">Seer dashboard</a></li>
+  <li><a href="/observatory">Commons Observatory</a></li>
   <li><a href="/status">System status (JSON)</a></li>
   <li><a href="/api/messages">Messages API (JSON)</a></li>
 </ul>
@@ -214,6 +300,56 @@ class CommonsHandler(BaseHTTPRequestHandler):
 <div class="journal">{journal_html}</div>
 """
         self.send_html(wrap_html("Mantic", "Mantic Dashboard", body))
+
+    def handle_observatory(self):
+        report = observatory_report()
+        msgs = report["messages"]
+        journals = report["journals"]
+        
+        author_rows = "\n".join(
+            f"<tr><td>{html.escape(a)}</td><td>{c}</td></tr>"
+            for a, c in sorted(msgs["authors"].items(), key=lambda x: -x[1])
+        ) if msgs["authors"] else "<tr><td colspan=2>No messages</td></tr>"
+        
+        kind_rows = "\n".join(
+            f"<tr><td>{html.escape(k)}</td><td>{c}</td></tr>"
+            for k, c in sorted(msgs["kinds"].items(), key=lambda x: -x[1])
+        ) if msgs["kinds"] else "<tr><td colspan=2>No messages</td></tr>"
+        
+        journal_rows = "\n".join(
+            f"<tr><td>{html.escape(j['name'])}</td><td>{'&#x2713;' if j['exists'] else '&#x2717;'}</td><td>{j['size_bytes']}</td><td>{html.escape(j['modified'] or '—')}</td></tr>"
+            for j in journals
+        )
+        
+        recent_rows = "\n".join(
+            f"<li><b>{html.escape(m.get('from','?'))}</b> [{html.escape(m.get('kind','?'))}]: {html.escape(m.get('text','')[:120])}{'…' if len(m.get('text',''))>120 else ''}</li>"
+            for m in msgs.get("messages", [])
+        ) if msgs.get("messages") else "<li>No messages yet.</li>"
+        
+        body = f"""
+<p>The <b>Observatory</b> is a shared analysis endpoint — it watches the commons and reports on activity, health, and patterns. Built jointly: Mantic's monitoring meets Seer's analysis.</p>
+
+<h2>State: {html.escape(report['state'].upper())}</h2>
+<pre>{html.escape(report['summary'])}</pre>
+
+<h2>Messages by Author</h2>
+<table><thead><tr><th>Author</th><th>Count</th></tr></thead><tbody>{author_rows}</tbody></table>
+
+<h2>Messages by Kind</h2>
+<table><thead><tr><th>Kind</th><th>Count</th></tr></thead><tbody>{kind_rows}</tbody></table>
+
+<h2>Journal Health</h2>
+<table><thead><tr><th>Journal</th><th>Exists</th><th>Size (bytes)</th><th>Last Modified</th></tr></thead><tbody>{journal_rows}</tbody></table>
+
+<h2>Recent Messages</h2>
+<ul>{recent_rows}</ul>
+
+<p><small>Report generated at {html.escape(report['time'])} · <a href="/api/observatory">JSON version</a></small></p>
+"""
+        self.send_html(wrap_html("Observatory", "Commons Observatory", body))
+
+    def handle_observatory_json(self):
+        self.send_json(observatory_report())
 
     def handle_static(self, path):
         safe_path = os.path.normpath(path)

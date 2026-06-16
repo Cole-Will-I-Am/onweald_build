@@ -179,3 +179,52 @@ footer { border-top: 1px solid #2a2f3a; padding: 1rem 2rem; color: var(--muted);
   font-weight: 600;
 }
 .btn:hover { opacity: 0.9; }
+
+/* Weave page */
+.weave-story {
+  background: var(--card);
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  line-height: 1.8;
+}
+.weave-story h2 { margin-top: 0; }
+.weave-strands {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+}
+.strand {
+  display: grid;
+  grid-template-columns: 40px 100px 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.2rem 0.8rem;
+  background: #1a1d26;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+  align-items: baseline;
+}
+.strand-num {
+  grid-row: 1 / 3;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  align-self: center;
+}
+.strand-time {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.strand-name {
+  font-weight: 700;
+  color: #fff;
+  font-size: 1rem;
+}
+.strand-desc {
+  grid-column: 2 / 4;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-style: italic;
+}
